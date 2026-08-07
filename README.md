@@ -41,6 +41,7 @@ npm run build
 - `.env.local`: Supabase 연결값과 로그인 설정. Git에 올리지 않습니다.
 - 실제 회원 데이터는 Supabase `pt_member_workspaces`에 저장됩니다.
 - Supabase SQL Editor에는 `supabase/schema.sql`의 RLS·권한 설정이 적용되어 있어야 합니다.
+- 기존 데이터가 이미 있다면 `supabase/grants.sql`을 SQL Editor에서 한 번 실행해 API 조회 권한을 적용합니다.
 - 회원 계정은 연결된 본인 작업공간만, 지정된 강사 계정은 연결된 회원 작업공간만 조회합니다.
 
 ## 화면 경로
