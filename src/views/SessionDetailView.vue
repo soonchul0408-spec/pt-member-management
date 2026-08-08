@@ -1,10 +1,10 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import SessionFormDialog from '@/components/pt/SessionFormDialog.vue'
 import { useAuthStore } from '@/stores/authStore'
-import { knownNotionVideoUrls } from '@/data/notionVideoUrls'
+import { supabase } from '@/lib/supabase'
 import { usePtStore } from '@/stores/ptStore'
 
 const route = useRoute()
@@ -12,6 +12,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const store = usePtStore()
 const dialogOpen = ref(false)
+const secureVideoUrls = ref([])
 
 const session = computed(() => store.sessions.find((item) => item.id === String(route.params.id)))
 const member = computed(() => (session.value ? store.getMember(session.value.memberId) : null))
@@ -25,6 +26,29 @@ const exerciseText = computed(() => {
     .trim()
 })
 
+async function loadSecureVideoUrls(sessionId) {
+  secureVideoUrls.value = []
+  if (!sessionId || !supabase) return
+
+  const { data } = await supabase.auth.getSession()
+  const accessToken = data.session?.access_token
+  if (!accessToken) return
+
+  const response = await fetch(`/api/session-video?sessionId=${encodeURIComponent(sessionId)}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!response.ok) return
+
+  const payload = await response.json()
+  secureVideoUrls.value = Array.isArray(payload.videoUrls) ? payload.videoUrls : []
+}
+
+watch(
+  [() => session.value?.id, () => auth.user?.id],
+  ([sessionId]) => { void loadSecureVideoUrls(sessionId) },
+  { immediate: true },
+)
+
 const videoUrls = computed(() => {
   if (!session.value) return []
   if (Array.isArray(session.value.videoUrls) && session.value.videoUrls.length) return session.value.videoUrls
@@ -33,7 +57,7 @@ const videoUrls = computed(() => {
 
   const recordText = [session.value.exercises, session.value.memo, session.value.nextPlan].filter(Boolean).join(' ')
   const recordUrls = [...recordText.matchAll(/https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s)]+/gi)].map(([url]) => url)
-  return recordUrls.length ? recordUrls : (knownNotionVideoUrls[session.value.id] || [])
+  return recordUrls.length ? recordUrls : secureVideoUrls.value
 })
 const videoPlayers = computed(() => videoUrls.value.map((url) => {
   const youtube = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([^?&/]+)/i)
