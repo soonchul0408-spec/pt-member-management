@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import SessionFormDialog from '@/components/pt/SessionFormDialog.vue'
 import { useAuthStore } from '@/stores/authStore'
+import { knownNotionVideoUrls } from '@/data/notionVideoUrls'
 import { usePtStore } from '@/stores/ptStore'
 
 const route = useRoute()
@@ -11,12 +12,6 @@ const router = useRouter()
 const auth = useAuthStore()
 const store = usePtStore()
 const dialogOpen = ref(false)
-
-// Notion CSV에는 페이지 본문이 포함되지 않아, 로컬 Notion 데이터에서 확인한
-// 공개 YouTube 임베드 주소만 회차 ID에 연결합니다.
-const knownNotionVideoUrls = {
-  'notion-session-1': 'https://youtu.be/W07YcFnN8fg',
-}
 
 const session = computed(() => store.sessions.find((item) => item.id === String(route.params.id)))
 const member = computed(() => (session.value ? store.getMember(session.value.memberId) : null))
@@ -30,29 +25,24 @@ const exerciseText = computed(() => {
     .trim()
 })
 
-const videoUrl = computed(() => {
-  if (!session.value) return ''
+const videoUrls = computed(() => {
+  if (!session.value) return []
+  if (Array.isArray(session.value.videoUrls) && session.value.videoUrls.length) return session.value.videoUrls
   const explicitUrl = session.value.videoUrl?.trim()
-  if (explicitUrl) return explicitUrl
+  if (explicitUrl) return [explicitUrl]
 
   const recordText = [session.value.exercises, session.value.memo, session.value.nextPlan].filter(Boolean).join(' ')
-  return recordText.match(/https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s)]+/i)?.[0]
-    || knownNotionVideoUrls[session.value.id]
-    || ''
+  const recordUrls = [...recordText.matchAll(/https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s)]+/gi)].map(([url]) => url)
+  return recordUrls.length ? recordUrls : (knownNotionVideoUrls[session.value.id] || [])
 })
-const videoEmbedUrl = computed(() => {
-  if (!videoUrl.value) return ''
-  const youtube = videoUrl.value.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^?&/]+)/i)
-  if (youtube) return `https://www.youtube.com/embed/${youtube[1]}`
-  const vimeo = videoUrl.value.match(/vimeo\.com\/(?:video\/)?(\d+)/i)
-  if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`
-  return ''
-})
-
-const directVideoUrl = computed(() => {
-  if (!videoUrl.value || videoEmbedUrl.value) return ''
-  return /\.(mp4|webm|mov)(?:\?.*)?$/i.test(videoUrl.value) ? videoUrl.value : ''
-})
+const videoPlayers = computed(() => videoUrls.value.map((url) => {
+  const youtube = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([^?&/]+)/i)
+  const vimeo = url.match(/vimeo\.com\/(?:video\/)?(\d+)/i)
+  return {
+    directUrl: /[.](mp4|webm|mov)(?:\?.*)?$/i.test(url) ? url : '',
+    embedUrl: youtube ? `https://www.youtube.com/embed/${youtube[1]}` : vimeo ? `https://player.vimeo.com/video/${vimeo[1]}` : '',
+  }
+}).filter((video) => video.directUrl || video.embedUrl))
 
 function formatDate(value) {
   return value?.replaceAll('-', '.') ?? '-'
@@ -101,8 +91,12 @@ function goBack() {
       <el-card class="panel-card" shadow="never">
         <div class="section-heading"><div><p class="section-eyebrow">WORKOUT & VIDEO</p><h2>수업 영상</h2></div><el-tag type="info" effect="plain">웹 재생</el-tag></div>
         <p v-if="exerciseText" class="session-detail-exercises">{{ exerciseText }}</p>
-        <video v-if="directVideoUrl" class="session-video" controls playsinline :src="directVideoUrl" />
-        <iframe v-else-if="videoEmbedUrl" class="session-video session-video--embed" :src="videoEmbedUrl" title="수업 영상" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen />
+        <div v-if="videoPlayers.length" class="session-video-list">
+          <template v-for="(video, index) in videoPlayers" :key="`${video.embedUrl || video.directUrl}-${index}`">
+            <video v-if="video.directUrl" class="session-video" controls playsinline :src="video.directUrl" />
+            <iframe v-else class="session-video session-video--embed" :src="video.embedUrl" :title="`수업 영상 ${index + 1}`" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen />
+          </template>
+        </div>
         <el-alert v-else type="info" :closable="false" show-icon title="이 회차에는 웹에서 재생할 영상이 없습니다.">원본 데이터에는 Notion 페이지 주소만 있고, 실제 동영상 파일이나 공개 영상 URL은 포함되어 있지 않습니다.</el-alert>
       </el-card>
 
@@ -139,6 +133,7 @@ function goBack() {
 .session-detail-stats strong, .session-source-grid strong { color: #34445e; font-size: 0.82rem; }
 .session-detail-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 18px; }
 .session-detail-exercises { margin: 0 0 16px; color: #526078; font-size: 0.82rem; line-height: 1.7; white-space: pre-wrap; }
+.session-video-list { display: grid; gap: 14px; }
 .session-video { display: block; width: 100%; max-height: 390px; margin-top: 14px; border-radius: 12px; background: #111827; }
 .session-video--embed { min-height: 270px; border: 0; }
 .session-note-list { display: grid; gap: 15px; }
