@@ -8,13 +8,14 @@ import {
   PT_STORAGE_KEY,
   TRAINERS,
 } from '@/data/ptData'
+import { getImportedState } from '@/data/importedPtData'
 import { useAuthStore } from '@/stores/authStore'
 
 const DEFAULT_USER = { name: '공개 사용자', role: '조회 전용' }
 const SECURE_MODE = supabaseConfigured || import.meta.env.VITE_REQUIRE_AUTH === 'true'
 
 function createEmptyState() {
-  return Object.fromEntries(Object.keys(getInitialState()).map((key) => [key, []]))
+  return getImportedState()
 }
 
 function createId(prefix) {
@@ -49,8 +50,7 @@ export const usePtStore = defineStore('pt', () => {
   let remoteSaveTimer
 
   function removePrivateRows(rows) {
-    if (SECURE_MODE) return structuredClone(rows ?? [])
-    return structuredClone(rows ?? []).filter((row) => row?.source !== 'notion')
+    return structuredClone(rows ?? [])
   }
 
   const canEdit = computed(() => auth.canEdit)
@@ -65,9 +65,16 @@ export const usePtStore = defineStore('pt', () => {
   })
 
   function applyState(nextState) {
-    members.value = removePrivateRows(nextState.members)
+    const imported = getImportedState()
+    const includeImportedRows = (rows, importedRows) => {
+      const currentRows = Array.isArray(rows) ? rows : []
+      const currentIds = new Set(currentRows.map((row) => row?.id))
+      return [...currentRows, ...importedRows.filter((row) => !currentIds.has(row.id))]
+    }
+
+    members.value = removePrivateRows(includeImportedRows(nextState.members, imported.members))
     memberships.value = structuredClone(nextState.memberships ?? [])
-    sessions.value = removePrivateRows(nextState.sessions)
+    sessions.value = removePrivateRows(includeImportedRows(nextState.sessions, imported.sessions))
     measurements.value = structuredClone(nextState.measurements ?? [])
     payments.value = structuredClone(nextState.payments ?? [])
     notes.value = removePrivateRows(nextState.notes)

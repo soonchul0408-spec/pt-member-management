@@ -9,7 +9,7 @@ const auth = useAuthStore()
 
 function chooseRole(role) {
   if (role === 'member') {
-    auth.switchDemoRole('member', auth.activeMemberId)
+    auth.switchDemoRole('member', 'member-notion-1')
     router.push('/pt/member/dashboard')
     return
   }

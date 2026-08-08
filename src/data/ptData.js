@@ -1,3 +1,5 @@
+import { importedMembers, importedSessions } from './importedPtData'
+
 export const TRAINERS = [
   { id: 'trainer-1', name: '김도윤', role: '대표 트레이너', color: '#2563eb' },
   { id: 'trainer-2', name: '이서연', role: '트레이너', color: '#0f766e' },
@@ -406,9 +408,9 @@ export const PT_STORAGE_KEY = 'pt-member-management-data-v1'
 
 export function getInitialState() {
   return {
-    members: structuredClone(initialMembers),
+    members: [...structuredClone(initialMembers), ...structuredClone(importedMembers)],
     memberships: structuredClone(initialMemberships),
-    sessions: structuredClone(initialSessions),
+    sessions: [...structuredClone(initialSessions), ...structuredClone(importedSessions)],
     measurements: structuredClone(initialMeasurements),
     payments: structuredClone(initialPayments),
     notes: structuredClone(initialNotes),

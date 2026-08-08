@@ -50,7 +50,7 @@ function formatSourceEditedAt(value) {
         <div v-if="sessions.length" class="member-schedule-list">
           <div v-for="session in sessions" :key="session.id" class="member-schedule-item">
             <div class="member-schedule-item__date"><strong>{{ formatDate(session.date).slice(5) }}</strong><span>{{ session.startTime }}</span></div>
-            <div class="member-schedule-item__body"><strong>{{ session.focus || 'PT 수업' }}</strong><p>{{ session.nextPlan || '수업 내용을 확인해 주세요.' }}</p><small>{{ session.duration }}분 · {{ store.getTrainer(session.trainerId)?.name || '-' }}</small></div>
+            <div class="member-schedule-item__body"><strong>{{ session.focus || 'PT 수업' }}</strong><p>{{ session.nextPlan || '수업 내용을 확인해 주세요.' }}</p><small>{{ session.duration ? `${session.duration}분` : '회차 기록' }} · {{ store.getTrainer(session.trainerId)?.name || '-' }}</small></div>
             <el-tag :type="sessionType(session.status)" size="small" effect="light">{{ session.status }}</el-tag>
           </div>
         </div>

@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { initialMembers, ROLE_STORAGE_KEY } from '@/data/ptData'
+import { importedMembers } from '@/data/importedPtData'
 import { supabase, supabaseConfigured } from '@/lib/supabase'
 
 const EDITOR_ROLES = ['instructor', 'editor', 'admin']
@@ -12,16 +13,16 @@ const memberLoginEmail = import.meta.env.VITE_MEMBER_LOGIN_EMAIL?.trim()
 const AUTH_REQUIRED = supabaseConfigured || import.meta.env.VITE_REQUIRE_AUTH === 'true'
 
 function readDemoPreferences() {
-  if (typeof window === 'undefined') return { role: 'instructor', memberId: 'member-1' }
+  if (typeof window === 'undefined') return { role: 'instructor', memberId: 'member-notion-1' }
 
   try {
     const saved = JSON.parse(window.localStorage.getItem(ROLE_STORAGE_KEY) ?? 'null')
     return {
       role: saved?.role === 'member' ? 'member' : 'instructor',
-      memberId: saved?.memberId || 'member-1',
+      memberId: saved?.memberId || 'member-notion-1',
     }
   } catch {
-    return { role: 'instructor', memberId: 'member-1' }
+    return { role: 'instructor', memberId: 'member-notion-1' }
   }
 }
 
@@ -57,7 +58,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (profile.value?.name) return profile.value.name
     if (user.value?.email) return user.value.email
     if (AUTH_REQUIRED) return '로그인 필요'
-    if (isMember.value) return initialMembers.find((member) => member.id === demoMemberId.value)?.name || '회원'
+    if (isMember.value) return [...initialMembers, ...importedMembers].find((member) => member.id === demoMemberId.value)?.name || '회원'
     return '김도윤'
   })
   const roleLabel = computed(() => {
