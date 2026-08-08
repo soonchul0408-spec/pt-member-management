@@ -14,20 +14,24 @@ const session = computed(() => store.sessions.find((item) => item.id === String(
 const member = computed(() => (session.value ? store.getMember(session.value.memberId) : null))
 const trainer = computed(() => (session.value ? store.getTrainer(session.value.trainerId) : null))
 
-const exerciseLinks = computed(() => {
-  if (!session.value) return []
-  if (Array.isArray(session.value.exerciseLinks) && session.value.exerciseLinks.length) return session.value.exerciseLinks
-
-  const text = session.value.exercises || ''
-  return [...text.matchAll(/([^(),]+?)\s*\((https?:\/\/[^)]+)\)/g)].map((match) => ({
-    name: match[1].trim(),
-    url: match[2],
-  }))
-})
-
 const exerciseText = computed(() => {
   if (!session.value) return ''
   return (session.value.exercises || '').replace(/\s*\(https?:\/\/[^)]+\)/g, '').trim()
+})
+
+const videoUrl = computed(() => session.value?.videoUrl?.trim() || '')
+const videoEmbedUrl = computed(() => {
+  if (!videoUrl.value) return ''
+  const youtube = videoUrl.value.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^?&/]+)/i)
+  if (youtube) return `https://www.youtube.com/embed/${youtube[1]}`
+  const vimeo = videoUrl.value.match(/vimeo\.com\/(?:video\/)?(\d+)/i)
+  if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`
+  return ''
+})
+
+const directVideoUrl = computed(() => {
+  if (!videoUrl.value || videoEmbedUrl.value) return ''
+  return /\.(mp4|webm|mov)(?:\?.*)?$/i.test(videoUrl.value) ? videoUrl.value : ''
 })
 
 function formatDate(value) {
@@ -75,16 +79,11 @@ function goBack() {
 
     <div class="session-detail-grid">
       <el-card class="panel-card" shadow="never">
-        <div class="section-heading"><div><p class="section-eyebrow">WORKOUT & VIDEO</p><h2>운동 영상·원본</h2></div><el-tag type="info" effect="plain">{{ exerciseLinks.length }}개</el-tag></div>
+        <div class="section-heading"><div><p class="section-eyebrow">WORKOUT & VIDEO</p><h2>수업 영상</h2></div><el-tag type="info" effect="plain">웹 재생</el-tag></div>
         <p v-if="exerciseText" class="session-detail-exercises">{{ exerciseText }}</p>
-        <div v-if="exerciseLinks.length" class="session-detail-links">
-          <a v-for="link in exerciseLinks" :key="link.url" :href="link.url" target="_blank" rel="noopener noreferrer">
-            <span class="session-detail-link__icon">▶</span>
-            <span><strong>{{ link.name }}</strong><small>Notion 원본 페이지 열기</small></span>
-            <span class="session-detail-link__arrow">↗</span>
-          </a>
-        </div>
-        <el-alert v-else type="info" :closable="false" show-icon title="이 회차에는 영상 링크가 없습니다.">원본 내보내기에는 영상 파일이 포함되지 않은 회차입니다.</el-alert>
+        <video v-if="directVideoUrl" class="session-video" controls playsinline :src="directVideoUrl" />
+        <iframe v-else-if="videoEmbedUrl" class="session-video session-video--embed" :src="videoEmbedUrl" title="수업 영상" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen />
+        <el-alert v-else type="info" :closable="false" show-icon title="이 회차에는 웹에서 재생할 영상이 없습니다.">원본 데이터에는 Notion 페이지 주소만 있고, 실제 동영상 파일이나 공개 영상 URL은 포함되어 있지 않습니다.</el-alert>
       </el-card>
 
       <el-card class="panel-card" shadow="never">
@@ -120,14 +119,8 @@ function goBack() {
 .session-detail-stats strong, .session-source-grid strong { color: #34445e; font-size: 0.82rem; }
 .session-detail-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 18px; }
 .session-detail-exercises { margin: 0 0 16px; color: #526078; font-size: 0.82rem; line-height: 1.7; white-space: pre-wrap; }
-.session-detail-links { display: grid; gap: 9px; }
-.session-detail-links a { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid #dbe7fb; border-radius: 12px; color: #34445e; background: #f8faff; text-decoration: none; transition: border-color 0.18s ease, transform 0.18s ease; }
-.session-detail-links a:hover { border-color: #9eb8f5; transform: translateY(-1px); }
-.session-detail-link__icon { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 9px; color: #2563eb; background: #e9f0ff; font-size: 0.72rem; }
-.session-detail-links a span:nth-child(2) { display: grid; min-width: 0; gap: 3px; }
-.session-detail-links strong { font-size: 0.8rem; }
-.session-detail-links small { color: #8b96a8; font-size: 0.68rem; }
-.session-detail-link__arrow { margin-left: auto; color: #8da2c7; font-size: 1rem; }
+.session-video { display: block; width: 100%; max-height: 390px; margin-top: 14px; border-radius: 12px; background: #111827; }
+.session-video--embed { min-height: 270px; border: 0; }
 .session-note-list { display: grid; gap: 15px; }
 .session-note-list div { padding-bottom: 13px; border-bottom: 1px solid #edf0f5; }
 .session-note-list div:last-child { padding-bottom: 0; border-bottom: 0; }

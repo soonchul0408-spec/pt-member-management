@@ -29,6 +29,7 @@ function createBlankForm() {
     condition: '보통',
     memo: '',
     nextPlan: '',
+    videoUrl: '',
   }
 }
 
@@ -102,6 +103,9 @@ function submit() {
         </el-form-item>
         <el-form-item label="트레이너 메모" class="span-2">
           <el-input v-model="form.memo" type="textarea" :rows="3" placeholder="수업 후 회원 반응과 관찰 내용을 작성하세요" />
+        </el-form-item>
+        <el-form-item label="웹에서 재생할 수업 영상 URL" class="span-2">
+          <el-input v-model="form.videoUrl" placeholder="MP4, YouTube 또는 Vimeo 영상 주소를 입력하세요" />
         </el-form-item>
       </div>
     </el-form>

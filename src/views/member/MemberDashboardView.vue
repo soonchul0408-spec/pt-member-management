@@ -23,7 +23,8 @@ function formatDate(value) {
 }
 
 function importedSessionDetails(session) {
-  return session.exercises && session.exercises !== 'Notion 회차 기록' ? session.exercises : '세부 운동 메모가 없는 회차입니다.'
+  const exerciseText = session.exercises?.replace(/\s*\(https?:\/\/[^)]+\)/g, '').trim()
+  return exerciseText && exerciseText !== 'Notion 회차 기록' ? exerciseText : '세부 운동 메모가 없는 회차입니다.'
 }
 
 function go(path) {
