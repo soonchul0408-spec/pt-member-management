@@ -86,7 +86,10 @@ function formatSourceEditedAt(value) {
           <div v-if="sessionDetails(session).length" class="imported-session-item__details">
             <p v-for="detail in sessionDetails(session)" :key="detail.label"><strong>{{ detail.label }}</strong><span>{{ detail.value }}</span></p>
           </div>
-          <p v-else class="imported-session-item__empty">{{ fallbackSessionDescription(session) }}</p>
+          <div v-if="session.exerciseLinks?.length" class="imported-session-item__links">
+            <a v-for="link in session.exerciseLinks" :key="link.url" :href="link.url" target="_blank" rel="noopener noreferrer">▶ {{ link.name }} 영상·원본 보기</a>
+          </div>
+          <p v-if="!sessionDetails(session).length && !session.exerciseLinks?.length" class="imported-session-item__empty">{{ fallbackSessionDescription(session) }}</p>
           <small v-if="session.sourceEditedAt" class="imported-session-item__source">원본 확인 시각: {{ formatSourceEditedAt(session.sourceEditedAt) }}</small>
         </article>
       </div>
@@ -132,6 +135,9 @@ function formatSourceEditedAt(value) {
 .imported-session-item__details p { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; margin: 0; color: #66748b; font-size: 0.78rem; line-height: 1.65; }
 .imported-session-item__details p strong { color: #8b96a8; font-size: 0.72rem; }
 .imported-session-item__details p span, .imported-note-item p { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; word-break: keep-all; }
+.imported-session-item__links { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+.imported-session-item__links a { padding: 6px 9px; border: 1px solid #dbe7fb; border-radius: 8px; color: #2563eb; background: #f5f8ff; font-size: 0.7rem; font-weight: 750; text-decoration: none; }
+.imported-session-item__links a:hover { border-color: #9eb8f5; background: #edf3ff; }
 .imported-session-item__empty { margin: 0; color: #98a2b2; font-size: 0.76rem; line-height: 1.6; }
 .imported-session-item__source { display: block; margin-top: 12px; }
 .imported-notes-section { margin-top: 24px; padding-top: 20px; border-top: 1px solid #edf0f5; }

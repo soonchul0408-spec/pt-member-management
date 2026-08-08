@@ -50,13 +50,31 @@ const importedRows = [
   ['24회차', '2026-07-20', '2026-07-20T19:29'],
   ['25회차', '2026-07-22', '2026-07-23T14:38'],
   ['26회차', '2026-07-24', '2026-07-25T14:46'],
-  ['27회차', '2026-07-28', '2026-07-28T13:26', 'Bosuball Squat · Machine Shoulder Press · Side Lateral Raise · Smith Lunge'],
-  ['28회차', '2026-07-29', '2026-08-03T07:58', 'Pull-up · Dumbbell Row · Cable Fly · Chest Press Machine'],
-  ['29회차', '2026-07-31', '2026-08-03T08:00', 'Barbell Shoulder Press · Front Raise · Bent-over Raise'],
-  ['30회차', '2026-08-03', '2026-08-04T16:48', 'Deadlift · Bench Press · Squat'],
+  ['27회차', '2026-07-28', '2026-07-28T13:26', 'Bosuball Squat · Machine Shoulder Press · Side Lateral Raise · Smith Lunge', [
+    ['Bosuball Squat', 'https://app.notion.com/p/Bosuball-Squat-3aab66f7197780349cf3c828d6cd2807?pvs=21'],
+    ['Machine Shoulder Press', 'https://app.notion.com/p/Machine-shoulder-press-3aab66f71977804981acc1d8087d9b75?pvs=21'],
+    ['Side Lateral Raise', 'https://app.notion.com/p/Side-lateral-raise-3aab66f7197780a7bf15d3c6d3fac9f4?pvs=21'],
+    ['Smith Lunge', 'https://app.notion.com/p/lunge-smith-3aab66f7197780199608d9b5facf17b1?pvs=21'],
+  ]],
+  ['28회차', '2026-07-29', '2026-08-03T07:58', 'Pull-up · Dumbbell Row · Cable Fly · Chest Press Machine', [
+    ['Pull-up', 'https://app.notion.com/p/Pull-up-dacb66f7197783ad8408019d2e8a3963?pvs=21'],
+    ['Dumbbell Row', 'https://app.notion.com/p/Dumbbell-row-3a8b66f719778333989101200f57b6f1?pvs=21'],
+    ['Cable Fly', 'https://app.notion.com/p/Cable-fly-3aab66f719778073a3def53b32df4d17?pvs=21'],
+    ['Chest Press Machine', 'https://app.notion.com/p/Chest-press-machine-3aab66f7197780ad82a3e87828cebe39?pvs=21'],
+  ]],
+  ['29회차', '2026-07-31', '2026-08-03T08:00', 'Barbell Shoulder Press · Front Raise · Bent-over Raise', [
+    ['Barbell Shoulder Press', 'https://app.notion.com/p/Barbell-Shoulder-press-3aab66f7197780ef9d2aef06b9245d86?pvs=21'],
+    ['Front Raise', 'https://app.notion.com/p/Front-raise-3aab66f7197780ad8e1ee388783c60e2?pvs=21'],
+    ['Bent-over Raise', 'https://app.notion.com/p/Bent-over-raise-3aab66f719778000a735d4c680bbfb42?pvs=21'],
+  ]],
+  ['30회차', '2026-08-03', '2026-08-04T16:48', 'Deadlift · Bench Press · Squat', [
+    ['Deadlift', 'https://app.notion.com/p/Deadlift-994b66f71977826e970b81ef89c48483?pvs=21'],
+    ['Bench Press', 'https://app.notion.com/p/Bench-press-3aab66f7197780e0a7b9cda2a17c7e2f?pvs=21'],
+    ['Squat', 'https://app.notion.com/p/Squat-3aab66f71977800fb658cef7e0436a21?pvs=21'],
+  ]],
 ]
 
-export const importedSessions = importedRows.map(([focus, date, sourceEditedAt, exercises], index) => ({
+export const importedSessions = importedRows.map(([focus, date, sourceEditedAt, exercises, exerciseLinks], index) => ({
   id: `notion-session-${index + 1}`,
   memberId: importedMemberId,
   trainerId: 'trainer-1',
@@ -69,6 +87,7 @@ export const importedSessions = importedRows.map(([focus, date, sourceEditedAt, 
   condition: '기록 확인 필요',
   memo: 'Notion에서 가져온 회차 기록입니다.',
   nextPlan: '',
+  exerciseLinks: (exerciseLinks || []).map(([name, url]) => ({ name, url })),
   source: 'notion',
   sourceEditedAt,
 }))
