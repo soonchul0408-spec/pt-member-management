@@ -11,7 +11,7 @@ https://pt-member-management.vercel.app/
 ## 다른 Mac에서 시작하기
 
 ```bash
-git clone <GitHub 저장소 주소>
+git clone https://github.com/soonchul0408-spec/pt-member-management.git
 cd pt-member-management
 npm install
 ```
