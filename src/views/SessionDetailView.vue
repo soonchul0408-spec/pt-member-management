@@ -26,6 +26,19 @@ const exerciseText = computed(() => {
     .trim()
 })
 
+const memoText = computed(() => {
+  if (!session.value?.memo || session.value.memo === 'Notion에서 가져온 회차 기록입니다.') return ''
+
+  const cleanedMemo = session.value.memo
+    .replace(/\s*\(https?:\/\/[^)]+\)/g, '')
+    .replace(/https?:\/\/\S+/g, '')
+    .trim()
+  const normalizedMemo = cleanedMemo.replace(/[\s,·]+/g, '')
+  const normalizedExercises = exerciseText.value.replace(/[\s,·]+/g, '')
+
+  return normalizedMemo && normalizedMemo !== normalizedExercises ? cleanedMemo : ''
+})
+
 async function loadSecureVideoUrls(sessionId) {
   secureVideoUrls.value = []
   if (!sessionId || !supabase) return
@@ -128,7 +141,7 @@ function goBack() {
         <div class="section-heading"><div><p class="section-eyebrow">COACHING NOTE</p><h2>수업 코멘트</h2></div><el-tag type="success" effect="plain">기록</el-tag></div>
         <div class="session-note-list">
           <div><span>회원 컨디션</span><p>{{ session.condition || '기록 없음' }}</p></div>
-          <div><span>트레이너 메모</span><p>{{ session.memo && session.memo !== 'Notion에서 가져온 회차 기록입니다.' ? session.memo : '작성된 코멘트가 없습니다.' }}</p></div>
+          <div><span>트레이너 메모</span><p>{{ memoText || '작성된 코멘트가 없습니다.' }}</p></div>
           <div><span>다음 수업 계획</span><p>{{ session.nextPlan || '작성된 다음 계획이 없습니다.' }}</p></div>
         </div>
         <el-button v-if="store.canEdit" class="session-detail-note-button" plain type="primary" @click="dialogOpen = true">코멘트 작성·수정</el-button>
