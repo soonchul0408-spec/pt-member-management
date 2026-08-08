@@ -12,6 +12,7 @@ const router = createRouter({
     { path: '/pt/members/:id', name: 'pt-member-detail', component: () => import('../views/MemberDetailView.vue') },
     { path: '/pt/schedule', name: 'pt-schedule', component: () => import('../views/ScheduleView.vue') },
     { path: '/pt/sessions', name: 'pt-sessions', component: () => import('../views/SessionsView.vue') },
+    { path: '/pt/sessions/:id', name: 'pt-session-detail', component: () => import('../views/SessionDetailView.vue') },
     { path: '/pt/measurements', name: 'pt-measurements', component: () => import('../views/MeasurementsView.vue') },
     { path: '/pt/payments', name: 'pt-payments', component: () => import('../views/PaymentsView.vue') },
     { path: '/pt/reports', name: 'pt-reports', component: () => import('../views/ReportsView.vue') },
