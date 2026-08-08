@@ -18,6 +18,7 @@ onMounted(() => {
 })
 
 const activeMenu = computed(() => {
+  if (route.path.startsWith('/pt/member/sessions')) return '/pt/member/schedule'
   if (route.path.startsWith('/pt/member/schedule')) return '/pt/member/schedule'
   if (route.path.startsWith('/pt/member/workouts')) return '/pt/member/workouts'
   if (route.path.startsWith('/pt/member/journal')) return '/pt/member/journal'

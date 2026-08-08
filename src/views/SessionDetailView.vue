@@ -3,10 +3,12 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import SessionFormDialog from '@/components/pt/SessionFormDialog.vue'
+import { useAuthStore } from '@/stores/authStore'
 import { usePtStore } from '@/stores/ptStore'
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 const store = usePtStore()
 const dialogOpen = ref(false)
 
@@ -49,13 +51,13 @@ function saveSession(payload) {
 }
 
 function goBack() {
-  router.push('/pt/sessions')
+  router.push(auth.isMember ? '/pt/member/schedule' : '/pt/sessions')
 }
 </script>
 
 <template>
   <div v-if="session" class="session-detail-page">
-    <div class="detail-back"><el-button text @click="goBack">← 수업 기록으로</el-button></div>
+    <div class="detail-back"><el-button text @click="goBack">← 일정으로</el-button></div>
 
     <el-card class="session-detail-hero" shadow="never">
       <div class="session-detail-hero__top">

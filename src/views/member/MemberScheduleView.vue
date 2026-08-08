@@ -1,11 +1,13 @@
 <script setup>
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/stores/authStore'
 import { usePtStore } from '@/stores/ptStore'
 
 const auth = useAuthStore()
 const store = usePtStore()
+const router = useRouter()
 const member = computed(() => store.getMember(auth.activeMemberId))
 const sessions = computed(() => (member.value ? store.getMemberSessions(member.value.id) : []))
 const assignments = computed(() => (member.value ? store.getMemberAssignments(member.value.id) : []))
@@ -39,6 +41,10 @@ function fallbackSessionDescription(session) {
 function formatSourceEditedAt(value) {
   return value?.replace('T', ' ').replace('Z', '') ?? '-'
 }
+
+function openSession(session) {
+  router.push(`/pt/member/sessions/${session.id}`)
+}
 </script>
 
 <template>
@@ -49,7 +55,7 @@ function formatSourceEditedAt(value) {
       <el-card class="panel-card" shadow="never">
         <div class="section-heading"><div><p class="section-eyebrow">PT SESSION</p><h2>수업 일정</h2></div><el-tag type="info" effect="plain">{{ sessions.length }}개</el-tag></div>
         <div v-if="sessions.length" class="member-schedule-list">
-          <div v-for="session in sessions" :key="session.id" class="member-schedule-item">
+          <div v-for="session in sessions" :key="session.id" class="member-schedule-item is-clickable" @click="openSession(session)">
             <div class="member-schedule-item__date"><strong>{{ formatDate(session.date).slice(5) }}</strong><span>{{ session.startTime }}</span></div>
             <div class="member-schedule-item__body"><strong>{{ session.focus || 'PT 수업' }}</strong><p>{{ session.nextPlan || '수업 내용을 확인해 주세요.' }}</p><small>{{ session.duration ? `${session.duration}분` : '회차 기록' }} · {{ store.getTrainer(session.trainerId)?.name || '-' }}</small></div>
             <el-tag :type="sessionType(session.status)" size="small" effect="light">{{ session.status }}</el-tag>
@@ -112,7 +118,8 @@ function formatSourceEditedAt(value) {
 .page-intro h2 { margin: 4px 0 0; color: #1e2f4d; font-size: 1.5rem; }
 .page-intro p:not(.section-eyebrow) { margin: 9px 0 0; color: #7c8799; font-size: 0.86rem; }
 .member-schedule-list, .member-assignment-cards { display: grid; gap: 11px; }
-.member-schedule-item { display: flex; align-items: center; gap: 13px; padding: 14px; border: 1px solid #e8edf5; border-radius: 13px; }
+.member-schedule-item { display: flex; align-items: center; gap: 13px; padding: 14px; border: 1px solid #e8edf5; border-radius: 13px; cursor: pointer; }
+.member-schedule-item:hover { border-color: #b8cdf7; background: #fbfdff; }
 .member-schedule-item__date { display: grid; flex: 0 0 62px; gap: 4px; place-items: center; padding: 9px 5px; border-radius: 10px; color: #2563eb; background: #eff4ff; }
 .member-schedule-item__date strong { font-size: 0.8rem; }
 .member-schedule-item__date span, .member-schedule-item__body small, .member-assignment-card small { color: #98a2b2; font-size: 0.7rem; }

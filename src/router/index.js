@@ -20,6 +20,7 @@ const router = createRouter({
     { path: '/pt/member', redirect: '/pt/member/dashboard' },
     { path: '/pt/member/dashboard', name: 'pt-member-dashboard', component: () => import('../views/member/MemberDashboardView.vue') },
     { path: '/pt/member/schedule', name: 'pt-member-schedule', component: () => import('../views/member/MemberScheduleView.vue') },
+    { path: '/pt/member/sessions/:id', name: 'pt-member-session-detail', component: () => import('../views/SessionDetailView.vue') },
     { path: '/pt/member/workouts', name: 'pt-member-workouts', component: () => import('../views/member/MemberWorkoutView.vue') },
     { path: '/pt/member/journal', name: 'pt-member-journal', component: () => import('../views/member/MemberJournalView.vue') },
     { path: '/pt/member/communication', name: 'pt-member-communication', component: () => import('../views/member/MemberCommunicationView.vue') },
