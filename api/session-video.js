@@ -1,3 +1,5 @@
+import { gunzipSync } from 'node:zlib'
+
 function sendJson(res, status, payload) {
   res.setHeader('Cache-Control', 'private, no-store')
   return res.status(status).json(payload)
@@ -35,7 +37,11 @@ export default async function handler(req, res) {
   try {
     const videoMap = JSON.parse(process.env.NOTION_VIDEO_MAP_JSON || '{}')
     const videoUrls = Array.isArray(videoMap[sessionId]) ? videoMap[sessionId] : []
-    return sendJson(res, 200, { videoUrls })
+    const contentMap = process.env.NOTION_SESSION_CONTENT_B64
+      ? JSON.parse(gunzipSync(Buffer.from(process.env.NOTION_SESSION_CONTENT_B64, 'base64')).toString('utf8'))
+      : {}
+    const contentBlocks = Array.isArray(contentMap[sessionId]) ? contentMap[sessionId] : []
+    return sendJson(res, 200, { videoUrls, contentBlocks })
   } catch {
     return sendJson(res, 500, { error: 'video_map_unavailable' })
   }

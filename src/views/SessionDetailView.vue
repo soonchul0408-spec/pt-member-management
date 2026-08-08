@@ -13,6 +13,7 @@ const auth = useAuthStore()
 const store = usePtStore()
 const dialogOpen = ref(false)
 const secureVideoUrls = ref([])
+const secureContentBlocks = ref([])
 
 const session = computed(() => store.sessions.find((item) => item.id === String(route.params.id)))
 const member = computed(() => (session.value ? store.getMember(session.value.memberId) : null))
@@ -41,6 +42,7 @@ const memoText = computed(() => {
 
 async function loadSecureVideoUrls(sessionId) {
   secureVideoUrls.value = []
+  secureContentBlocks.value = []
   if (!sessionId || !supabase) return
 
   const { data } = await supabase.auth.getSession()
@@ -54,6 +56,7 @@ async function loadSecureVideoUrls(sessionId) {
 
   const payload = await response.json()
   secureVideoUrls.value = Array.isArray(payload.videoUrls) ? payload.videoUrls : []
+  secureContentBlocks.value = Array.isArray(payload.contentBlocks) ? payload.contentBlocks : []
 }
 
 watch(
@@ -148,6 +151,13 @@ function goBack() {
       </el-card>
     </div>
 
+    <el-card v-if="secureContentBlocks.length" class="panel-card session-notion-content" shadow="never">
+      <div class="section-heading"><div><p class="section-eyebrow">NOTION NOTES</p><h2>운동 방법·주의점</h2></div><el-tag type="info" effect="plain">원본 코멘트</el-tag></div>
+      <div class="notion-content-list">
+        <p v-for="(block, index) in secureContentBlocks" :key="`${block.type}-${index}`" :class="['notion-content-block', `notion-content-block--${block.type}`]">{{ block.text }}</p>
+      </div>
+    </el-card>
+
     <el-card class="panel-card session-detail-source" shadow="never">
       <div class="section-heading"><div><p class="section-eyebrow">SOURCE</p><h2>원본 기록 정보</h2></div></div>
       <div class="session-source-grid"><div><span>기록 출처</span><strong>{{ session.source === 'notion' ? 'Notion 가져오기' : '웹앱 기록' }}</strong></div><div><span>원본 수정 시각</span><strong>{{ session.sourceEditedAt ? session.sourceEditedAt.replace('T', ' ') : '해당 없음' }}</strong></div></div>
@@ -178,6 +188,12 @@ function goBack() {
 .session-note-list div:last-child { padding-bottom: 0; border-bottom: 0; }
 .session-note-list p { margin: 6px 0 0; color: #526078; font-size: 0.8rem; line-height: 1.7; white-space: pre-wrap; }
 .session-detail-note-button { width: 100%; margin-top: 20px; }
+.session-notion-content { margin-top: 18px; }
+.notion-content-list { display: grid; gap: 10px; }
+.notion-content-block { margin: 0; color: #526078; font-size: 0.82rem; line-height: 1.75; white-space: pre-line; }
+.notion-content-block--header { color: #1e2f4d; font-size: 1.05rem; font-weight: 800; }
+.notion-content-block--sub_header { margin-top: 6px; color: #2f5fb3; font-size: 0.96rem; font-weight: 750; }
+.notion-content-block--sub_sub_header { margin-top: 3px; color: #526078; font-weight: 700; }
 .session-detail-source { margin-top: 18px; }
 .session-source-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 @media (max-width: 760px) { .session-detail-hero__top { flex-direction: column; } .session-detail-hero__actions { justify-content: flex-start; } .session-detail-stats, .session-detail-grid { grid-template-columns: 1fr 1fr; } }
