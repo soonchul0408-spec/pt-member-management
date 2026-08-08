@@ -18,10 +18,20 @@ const trainer = computed(() => (session.value ? store.getTrainer(session.value.t
 
 const exerciseText = computed(() => {
   if (!session.value) return ''
-  return (session.value.exercises || '').replace(/\s*\(https?:\/\/[^)]+\)/g, '').trim()
+  return (session.value.exercises || '')
+    .replace(/\s*\(https?:\/\/[^)]+\)/g, '')
+    .replace(/https?:\/\/\S+/g, '')
+    .trim()
 })
 
-const videoUrl = computed(() => session.value?.videoUrl?.trim() || '')
+const videoUrl = computed(() => {
+  if (!session.value) return ''
+  const explicitUrl = session.value.videoUrl?.trim()
+  if (explicitUrl) return explicitUrl
+
+  const recordText = [session.value.exercises, session.value.memo, session.value.nextPlan].filter(Boolean).join(' ')
+  return recordText.match(/https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s)]+/i)?.[0] || ''
+})
 const videoEmbedUrl = computed(() => {
   if (!videoUrl.value) return ''
   const youtube = videoUrl.value.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^?&/]+)/i)
