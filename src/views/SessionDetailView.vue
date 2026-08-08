@@ -12,6 +12,12 @@ const auth = useAuthStore()
 const store = usePtStore()
 const dialogOpen = ref(false)
 
+// Notion CSV에는 페이지 본문이 포함되지 않아, 로컬 Notion 데이터에서 확인한
+// 공개 YouTube 임베드 주소만 회차 ID에 연결합니다.
+const knownNotionVideoUrls = {
+  'notion-session-1': 'https://youtu.be/W07YcFnN8fg',
+}
+
 const session = computed(() => store.sessions.find((item) => item.id === String(route.params.id)))
 const member = computed(() => (session.value ? store.getMember(session.value.memberId) : null))
 const trainer = computed(() => (session.value ? store.getTrainer(session.value.trainerId) : null))
@@ -30,7 +36,9 @@ const videoUrl = computed(() => {
   if (explicitUrl) return explicitUrl
 
   const recordText = [session.value.exercises, session.value.memo, session.value.nextPlan].filter(Boolean).join(' ')
-  return recordText.match(/https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s)]+/i)?.[0] || ''
+  return recordText.match(/https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s)]+/i)?.[0]
+    || knownNotionVideoUrls[session.value.id]
+    || ''
 })
 const videoEmbedUrl = computed(() => {
   if (!videoUrl.value) return ''
