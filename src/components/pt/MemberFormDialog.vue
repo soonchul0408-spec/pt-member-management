@@ -1,9 +1,12 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   member: { type: Object, default: null },
+  registrationMode: { type: Boolean, default: false },
+  saving: { type: Boolean, default: false },
+  errorMessage: { type: String, default: '' },
   trainers: { type: Array, default: () => [] },
   statuses: { type: Array, default: () => [] },
 })
@@ -36,28 +39,33 @@ watch(
   { immediate: true },
 )
 
-const rules = {
+const rules = computed(() => ({
   name: [{ required: true, message: '회원명을 입력하세요.', trigger: 'blur' }],
   phone: [{ required: true, message: '연락처를 입력하세요.', trigger: 'blur' }],
   trainerId: [{ required: true, message: '담당 트레이너를 선택하세요.', trigger: 'change' }],
-}
+  goal: props.registrationMode ? [{ required: true, message: '운동 목표를 입력하세요.', trigger: 'blur' }] : [],
+}))
 
 async function submit() {
+  if (props.saving) return
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
   emit('save', { ...form.value })
-  emit('update:modelValue', false)
+  if (!props.registrationMode) emit('update:modelValue', false)
 }
 </script>
 
 <template>
   <el-dialog
     :model-value="modelValue"
-    :title="member ? '회원 정보 수정' : '새 회원 등록'"
+    :title="member && !registrationMode ? '회원 정보 수정' : '새 회원 등록'"
     width="620px"
     destroy-on-close
+    :close-on-click-modal="!saving"
+    :close-on-press-escape="!saving"
     @update:model-value="emit('update:modelValue', $event)"
   >
+    <el-alert v-if="errorMessage" type="error" :closable="false" show-icon :title="errorMessage" role="alert" />
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="dialog-form">
       <div class="form-grid">
         <el-form-item label="회원명" prop="name">
@@ -92,7 +100,7 @@ async function submit() {
             <el-option v-for="status in statuses" :key="status" :label="status" :value="status" />
           </el-select>
         </el-form-item>
-        <el-form-item label="운동 목표" class="span-2">
+        <el-form-item label="운동 목표" prop="goal" class="span-2">
           <el-input v-model="form.goal" placeholder="회원이 기대하는 목표를 작성하세요" />
         </el-form-item>
         <el-form-item label="주의사항·컨디션 메모" class="span-2">
@@ -102,8 +110,8 @@ async function submit() {
     </el-form>
     <template #footer>
       <div class="form-actions">
-        <el-button @click="emit('update:modelValue', false)">취소</el-button>
-        <el-button type="primary" @click="submit">저장하기</el-button>
+        <el-button :disabled="saving" @click="emit('update:modelValue', false)">취소</el-button>
+        <el-button type="primary" :loading="saving" :disabled="saving" @click="submit">{{ saving ? '저장 중…' : '저장하기' }}</el-button>
       </div>
     </template>
   </el-dialog>

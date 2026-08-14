@@ -6,6 +6,7 @@ const router = createRouter({
     { path: '/', name: 'pt-public-home', component: () => import('../views/PublicHomeView.vue') },
     { path: '/pt/member/preview', name: 'pt-member-preview', component: () => import('../views/member/MemberPreviewView.vue') },
     { path: '/pt/consultation', name: 'pt-public-consultation', component: () => import('../views/PublicConsultationView.vue') },
+    { path: '/privacy', name: 'pt-public-privacy', component: () => import('../views/PublicPrivacyView.vue') },
     { path: '/pt', redirect: '/pt/role-select' },
     { path: '/pt/role-select', name: 'pt-role-select', component: () => import('../views/RoleSelectionView.vue') },
     { path: '/pt/login', name: 'pt-login', component: () => import('../views/LoginView.vue') },

@@ -1,21 +1,23 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
-import { initialMembers, ROLE_STORAGE_KEY } from '@/data/ptData'
 import { supabase, supabaseConfigured } from '@/lib/supabase'
+import { localJsonStorage } from '@/services/storageAdapter'
+import { DEMO_ROLE_STORAGE_KEY } from '@/services/storageKeys'
 
 const EDITOR_ROLES = ['instructor', 'editor', 'admin']
 const localEditorMode = import.meta.env.DEV && import.meta.env.VITE_LOCAL_EDITOR_MODE === 'true'
 const memberLoginEmail = import.meta.env.VITE_MEMBER_LOGIN_EMAIL?.trim()
 
-// Supabase가 연결된 배포는 안전을 위해 항상 로그인 모드로 동작합니다.
-const AUTH_REQUIRED = supabaseConfigured || import.meta.env.VITE_REQUIRE_AUTH === 'true'
+// 운영 빌드는 환경변수 누락으로 데모 권한이 열리지 않도록 인증을 기본 요구합니다.
+// 로컬 개발에서만 Supabase 없이 역할 데모를 사용할 수 있습니다.
+const AUTH_REQUIRED = import.meta.env.PROD || supabaseConfigured || import.meta.env.VITE_REQUIRE_AUTH === 'true'
 
 function readDemoPreferences() {
   if (typeof window === 'undefined') return { role: 'instructor', memberId: 'member-1' }
 
   try {
-    const saved = JSON.parse(window.localStorage.getItem(ROLE_STORAGE_KEY) ?? 'null')
+    const saved = localJsonStorage.read(DEMO_ROLE_STORAGE_KEY, null).value
     return {
       role: saved?.role === 'member' ? 'member' : 'instructor',
       memberId: saved?.memberId || 'member-1',
@@ -57,7 +59,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (profile.value?.name) return profile.value.name
     if (user.value?.email) return user.value.email
     if (AUTH_REQUIRED) return '로그인 필요'
-    if (isMember.value) return initialMembers.find((member) => member.id === demoMemberId.value)?.name || '회원'
+    if (isMember.value) return '회원 데모'
     return '김도윤'
   })
   const roleLabel = computed(() => {
@@ -70,7 +72,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   function persistDemoPreferences() {
     if (typeof window === 'undefined') return
-    window.localStorage.setItem(ROLE_STORAGE_KEY, JSON.stringify({ role: demoRole.value, memberId: demoMemberId.value }))
+    localJsonStorage.write(DEMO_ROLE_STORAGE_KEY, { role: demoRole.value, memberId: demoMemberId.value })
   }
 
   function switchDemoRole(nextRole, memberId = demoMemberId.value) {

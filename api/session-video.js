@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   const sessionId = String(req.query?.sessionId || '').trim()
   const authorization = req.headers.authorization
   const supabaseUrl = process.env.VITE_SUPABASE_URL
-  const publishableKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY
+  const publishableKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
 
   if (!sessionId || !authorization || !supabaseUrl || !publishableKey) {
     return sendJson(res, 401, { error: 'unauthorized' })
@@ -22,17 +22,21 @@ export default async function handler(req, res) {
     Authorization: authorization,
   }
 
-  const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, { headers })
-  if (!userResponse.ok) return sendJson(res, 401, { error: 'unauthorized' })
+  try {
+    const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, { headers })
+    if (!userResponse.ok) return sendJson(res, 401, { error: 'unauthorized' })
 
-  const workspaceResponse = await fetch(`${supabaseUrl}/rest/v1/pt_member_workspaces?select=member_id,payload`, { headers })
-  if (!workspaceResponse.ok) return sendJson(res, 403, { error: 'forbidden' })
+    const workspaceResponse = await fetch(`${supabaseUrl}/rest/v1/pt_member_workspaces?select=member_id,payload`, { headers })
+    if (!workspaceResponse.ok) return sendJson(res, 403, { error: 'forbidden' })
 
-  const workspaces = await workspaceResponse.json()
-  const canAccessSession = Array.isArray(workspaces)
-    && workspaces.some((workspace) => (workspace.payload?.sessions || []).some((session) => session.id === sessionId))
+    const workspaces = await workspaceResponse.json()
+    const canAccessSession = Array.isArray(workspaces)
+      && workspaces.some((workspace) => (workspace.payload?.sessions || []).some((session) => session.id === sessionId))
 
-  if (!canAccessSession) return sendJson(res, 404, { error: 'not_found' })
+    if (!canAccessSession) return sendJson(res, 404, { error: 'not_found' })
+  } catch {
+    return sendJson(res, 503, { error: 'service_unavailable' })
+  }
 
   try {
     const videoMap = JSON.parse(process.env.NOTION_VIDEO_MAP_JSON || '{}')

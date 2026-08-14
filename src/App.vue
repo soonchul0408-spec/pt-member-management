@@ -13,6 +13,10 @@ const auth = useAuthStore()
 const store = usePtStore()
 const mobileMenuOpen = ref(false)
 
+function isMemberRoute(path) {
+  return path === '/pt/member' || path.startsWith('/pt/member/')
+}
+
 onMounted(() => {
   void auth.initialize()
 })
@@ -25,7 +29,7 @@ const activeMenu = computed(() => {
   if (route.path.startsWith('/pt/member/communication')) return '/pt/member/communication'
   if (route.path.startsWith('/pt/member/progress')) return '/pt/member/progress'
   if (route.path.startsWith('/pt/member/announcements')) return '/pt/member/announcements'
-  if (route.path.startsWith('/pt/member')) return '/pt/member/dashboard'
+  if (isMemberRoute(route.path)) return '/pt/member/dashboard'
   if (route.path.startsWith('/pt/consultations')) return '/pt/consultations'
   if (route.path.startsWith('/pt/members')) return '/pt/members'
   if (route.path.startsWith('/pt/schedule')) return '/pt/schedule'
@@ -76,7 +80,7 @@ async function handleSignOut() {
 </script>
 
 <template>
-  <router-view v-if="['pt-public-home', 'pt-member-preview', 'pt-public-consultation', 'pt-login', 'pt-role-select'].includes(route.name)" />
+  <router-view v-if="['pt-public-home', 'pt-member-preview', 'pt-public-consultation', 'pt-public-privacy', 'pt-login', 'pt-role-select'].includes(route.name)" />
 
   <div v-else class="pt-app-shell">
     <aside id="pt-sidebar" class="pt-sidebar" :class="{ 'is-open': mobileMenuOpen }">

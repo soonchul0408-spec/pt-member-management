@@ -5,13 +5,15 @@ import { supabase, supabaseConfigured } from '@/lib/supabase'
 import {
   getInitialState,
   MEMBER_STATUSES,
-  PT_STORAGE_KEY,
   TRAINERS,
 } from '@/data/ptData'
+import { createOnboardingPatch, isSampleMember } from '@/services/memberOnboarding'
+import { memberRepository } from '@/services/memberDataStorage'
 import { useAuthStore } from '@/stores/authStore'
 
 const DEFAULT_USER = { name: '공개 사용자', role: '조회 전용' }
-const SECURE_MODE = supabaseConfigured || import.meta.env.VITE_REQUIRE_AUTH === 'true'
+// 운영 빌드에서는 Supabase 설정이 누락되어도 샘플 회원 데이터를 내부 화면에 노출하지 않습니다.
+const SECURE_MODE = import.meta.env.PROD || supabaseConfigured || import.meta.env.VITE_REQUIRE_AUTH === 'true'
 
 function createEmptyState() {
   return Object.fromEntries(Object.keys(getInitialState()).map((key) => [key, []]))
@@ -48,8 +50,34 @@ export const usePtStore = defineStore('pt', () => {
   const syncError = ref('')
   let remoteSaveTimer
 
-  function removePrivateRows(rows) {
-    return structuredClone(rows ?? [])
+  function cloneRows(rows) {
+    return Array.isArray(rows)
+      ? structuredClone(rows).filter((row) => row && typeof row === 'object')
+      : []
+  }
+
+  function normalizeRows(rows) {
+    const seenIds = new Set()
+
+    return cloneRows(rows).filter((row) => {
+      if (typeof row.id !== 'string' || !row.id.trim() || seenIds.has(row.id)) return false
+      seenIds.add(row.id)
+      return true
+    })
+  }
+
+  function normalizeMembers(rows) {
+    return normalizeRows(rows)
+      .map((member) => ({
+        ...member,
+        name: typeof member.name === 'string' && member.name.trim() ? member.name : '이름 미설정 회원',
+        phone: typeof member.phone === 'string' ? member.phone : '',
+        email: typeof member.email === 'string' ? member.email : '',
+        gender: typeof member.gender === 'string' ? member.gender : '미설정',
+        birthYear: typeof member.birthYear === 'string' ? member.birthYear : '',
+        goal: typeof member.goal === 'string' ? member.goal : '',
+        status: typeof member.status === 'string' ? member.status : MEMBER_STATUSES[0],
+      }))
   }
 
   const canEdit = computed(() => auth.canEdit)
@@ -63,19 +91,19 @@ export const usePtStore = defineStore('pt', () => {
     return supabaseConfigured && auth.user ? '서버 데이터' : '샘플 데이터'
   })
 
-  function applyState(nextState) {
-    members.value = removePrivateRows(nextState.members)
-    memberships.value = structuredClone(nextState.memberships ?? [])
-    sessions.value = removePrivateRows(nextState.sessions)
-    measurements.value = structuredClone(nextState.measurements ?? [])
-    payments.value = structuredClone(nextState.payments ?? [])
-    notes.value = removePrivateRows(nextState.notes)
-    workoutAssignments.value = structuredClone(nextState.workoutAssignments ?? state.workoutAssignments)
-    workoutLogs.value = structuredClone(nextState.workoutLogs ?? state.workoutLogs)
-    mealRecords.value = structuredClone(nextState.mealRecords ?? state.mealRecords)
-    coachingNotes.value = structuredClone(nextState.coachingNotes ?? state.coachingNotes)
-    communications.value = structuredClone(nextState.communications ?? state.communications)
-    announcements.value = structuredClone(nextState.announcements ?? state.announcements)
+  function applyState(nextState = {}) {
+    members.value = normalizeMembers(nextState.members)
+    memberships.value = normalizeRows(nextState.memberships)
+    sessions.value = normalizeRows(nextState.sessions)
+    measurements.value = normalizeRows(nextState.measurements)
+    payments.value = normalizeRows(nextState.payments)
+    notes.value = normalizeRows(nextState.notes)
+    workoutAssignments.value = normalizeRows(nextState.workoutAssignments)
+    workoutLogs.value = normalizeRows(nextState.workoutLogs)
+    mealRecords.value = normalizeRows(nextState.mealRecords)
+    coachingNotes.value = normalizeRows(nextState.coachingNotes)
+    communications.value = normalizeRows(nextState.communications)
+    announcements.value = normalizeRows(nextState.announcements)
   }
 
   function snapshot() {
@@ -93,6 +121,18 @@ export const usePtStore = defineStore('pt', () => {
       communications: communications.value,
       announcements: announcements.value,
     }
+  }
+
+  function persistLocalState() {
+    if (typeof window === 'undefined' || SECURE_MODE || (supabaseConfigured && auth.user)) return true
+
+    if (memberRepository.save(snapshot())) {
+      syncError.value = ''
+      return true
+    }
+
+    syncError.value = '회원 정보를 이 브라우저에 저장하지 못했습니다. 저장 공간을 확인해 주세요.'
+    return false
   }
 
   function mergeRemoteRows(rows) {
@@ -151,7 +191,6 @@ export const usePtStore = defineStore('pt', () => {
     if (typeof window === 'undefined') return
 
     if (SECURE_MODE) {
-      window.localStorage.removeItem(PT_STORAGE_KEY)
       applyState(createEmptyState())
       hydrated.value = true
       return
@@ -163,15 +202,14 @@ export const usePtStore = defineStore('pt', () => {
       return
     }
 
-    try {
-      const saved = JSON.parse(window.localStorage.getItem(PT_STORAGE_KEY) ?? 'null')
-      if (saved) applyState(saved)
-    } catch {
-      window.localStorage.removeItem(PT_STORAGE_KEY)
+    const saved = memberRepository.load(null)
+    if (saved.data) applyState(saved.data)
+    if (saved.status === 'invalid') {
+      syncError.value = '저장된 회원 데이터 형식을 읽지 못했습니다. 기존 데이터를 변경하지 않고 빈 상태로 표시합니다.'
     }
 
     hydrated.value = true
-    if (!supabaseConfigured || auth.isDemoMode) window.localStorage.setItem(PT_STORAGE_KEY, JSON.stringify(snapshot()))
+    if (saved.status !== 'invalid' && (!supabaseConfigured || auth.isDemoMode)) persistLocalState()
   }
 
   hydrate()
@@ -243,7 +281,7 @@ export const usePtStore = defineStore('pt', () => {
       if (!hydrated.value || typeof window === 'undefined') return
 
       if (!SECURE_MODE && (!supabaseConfigured || auth.isDemoMode)) {
-        window.localStorage.setItem(PT_STORAGE_KEY, JSON.stringify(snapshot()))
+        persistLocalState()
       } else if (SECURE_MODE && remoteHydrated.value && canWriteRemote.value) {
         queueRemoteSave()
       }
@@ -378,18 +416,66 @@ export const usePtStore = defineStore('pt', () => {
     }
   }
 
-  function addMember(payload) {
+  function addMember(payload = {}) {
     if (!canEdit.value) return null
-    const member = { ...payload, id: createId('member'), joinedAt: payload.joinedAt || today.value, avatarColor: payload.avatarColor || '#dbeafe' }
+    const source = payload && typeof payload === 'object' ? payload : {}
+    const member = {
+      ...source,
+      id: createId('member'),
+      joinedAt: source.joinedAt || today.value,
+      avatarColor: source.avatarColor || '#dbeafe',
+      isSample: source.isSample === true,
+      exerciseGoal: source.exerciseGoal ?? source.goal ?? '',
+    }
     members.value.unshift(member)
+    if (!persistLocalState()) {
+      members.value.shift()
+      return null
+    }
     return member
   }
 
+  function removeMember(memberId) {
+    if (!canEdit.value || !memberId) return false
+    const index = members.value.findIndex((member) => member.id === memberId)
+    if (index === -1) return false
+    const [removed] = members.value.splice(index, 1)
+    if (!persistLocalState()) {
+      members.value.splice(index, 0, removed)
+      return false
+    }
+    return true
+  }
+
   function updateMember(payload) {
-    if (!canEdit.value) return false
+    if (!canEdit.value || !payload || typeof payload.id !== 'string') return false
     const index = members.value.findIndex((member) => member.id === payload.id)
-    if (index !== -1) members.value[index] = { ...members.value[index], ...payload }
-    return index !== -1
+    if (index === -1) return false
+
+    const previous = members.value[index]
+    const nextMember = { ...previous, ...payload }
+    if (Object.prototype.hasOwnProperty.call(payload, 'goal') && payload.goal !== previous.goal) {
+      nextMember.exerciseGoal = payload.goal
+    }
+    members.value[index] = nextMember
+    if (!persistLocalState()) {
+      members.value[index] = previous
+      return false
+    }
+    return true
+  }
+
+  function saveMemberOnboarding(memberId, input) {
+    if (!canEdit.value || !memberId) return false
+    const member = getMember(memberId)
+    if (!member || isSampleMember(member)) return false
+
+    const patch = createOnboardingPatch(input)
+    return updateMember({
+      id: member.id,
+      ...patch,
+      goal: patch.exerciseGoal || member.goal || '',
+    })
   }
 
   function addSession(payload) {
@@ -549,7 +635,7 @@ export const usePtStore = defineStore('pt', () => {
   function resetLocalData() {
     if (SECURE_MODE || !canEdit.value) return false
     applyState(getInitialState())
-    return true
+    return persistLocalState()
   }
 
   return {
@@ -602,7 +688,9 @@ export const usePtStore = defineStore('pt', () => {
     getUnreadCoachingNoteCount,
     getMemberProgress,
     addMember,
+    removeMember,
     updateMember,
+    saveMemberOnboarding,
     addSession,
     updateSession,
     addMeasurement,

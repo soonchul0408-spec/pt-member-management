@@ -79,6 +79,10 @@ export const initialMembers = [
   },
 ]
 
+// 로컬 데모에서 처음 제공하는 회원은 화면 확인용 샘플입니다.
+// 상담에서 새로 등록되는 회원은 별도의 isSample: false 값으로 저장합니다.
+export const SAMPLE_MEMBER_IDS = Object.freeze(import.meta.env.DEV ? initialMembers.map((member) => member.id) : [])
+
 export const initialMemberships = [
   {
     id: 'membership-1',
@@ -235,7 +239,7 @@ export const initialNotes = [
   { id: 'note-2', memberId: 'member-4', createdAt: '2026-08-01', type: '회원 메모', content: '발목 회복 후 8월 중순부터 가벼운 하체 루틴을 재개할 예정입니다.', author: '박현우' },
 ]
 
-export const ROLE_STORAGE_KEY = 'pt-member-management-demo-role-v1'
+export { DEMO_ROLE_STORAGE_KEY as ROLE_STORAGE_KEY, MEMBER_DATA_STORAGE_KEY as PT_STORAGE_KEY } from '@/services/storageKeys'
 
 export const initialWorkoutAssignments = [
   {
@@ -402,11 +406,26 @@ export const initialAnnouncements = [
   },
 ]
 
-export const PT_STORAGE_KEY = 'pt-member-management-data-v1'
-
 export function getInitialState() {
+  if (!import.meta.env.DEV) {
+    return {
+      members: [],
+      memberships: [],
+      sessions: [],
+      measurements: [],
+      payments: [],
+      notes: [],
+      workoutAssignments: [],
+      workoutLogs: [],
+      mealRecords: [],
+      coachingNotes: [],
+      communications: [],
+      announcements: [],
+    }
+  }
+
   return {
-    members: structuredClone(initialMembers),
+    members: structuredClone(initialMembers).map((member) => ({ ...member, isSample: true })),
     memberships: structuredClone(initialMemberships),
     sessions: structuredClone(initialSessions),
     measurements: structuredClone(initialMeasurements),

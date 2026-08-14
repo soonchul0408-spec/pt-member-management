@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useAuthStore } from '@/stores/authStore'
+import { consultationRepository, getConsultationErrorMessage } from '@/services/consultationRepository'
 
 import brandMark from '@/assets/good-habit-pt-mark.png'
 
@@ -8,17 +9,57 @@ const inquiry = ref({
   name: '',
   contact: '',
   goal: '',
+  privacyConsent: false,
 })
 const submitted = ref(false)
+const submitError = ref('')
+const isSubmitting = ref(false)
 const auth = useAuthStore()
 const canViewConsultationManagement = computed(() => Boolean(auth.user) && auth.isInstructor)
+const isRemoteMode = computed(() => consultationRepository.isRemote)
+const storageLabel = computed(() => (isRemoteMode.value ? '서버 저장' : '브라우저 데모 저장'))
 
-function handleSubmit() {
-  submitted.value = true
+async function handleSubmit() {
+  const normalizedInquiry = {
+    name: inquiry.value.name.trim(),
+    contact: inquiry.value.contact.trim(),
+    goal: inquiry.value.goal.trim(),
+    privacyConsent: inquiry.value.privacyConsent === true,
+  }
+
+  if (!normalizedInquiry.name || !normalizedInquiry.contact || !normalizedInquiry.goal) {
+    submitError.value = '이름, 연락처, 운동 목표를 모두 입력해 주세요.'
+    return
+  }
+
+  if (!normalizedInquiry.privacyConsent) {
+    submitError.value = '개인정보 수집·이용 안내를 확인하고 동의해 주세요.'
+    return
+  }
+
+  isSubmitting.value = true
+  try {
+    const savedConsultation = await consultationRepository.create(normalizedInquiry)
+    if (!savedConsultation) {
+      submitError.value = isRemoteMode.value
+        ? '상담 신청을 서버에 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+        : '이 브라우저에 상담 정보를 저장하지 못했습니다. 저장 공간을 확인한 뒤 다시 시도해 주세요.'
+      return
+    }
+
+    inquiry.value = normalizedInquiry
+    submitError.value = ''
+    submitted.value = true
+  } catch (error) {
+    submitError.value = getConsultationErrorMessage(error, '상담 신청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 function editInquiry() {
   submitted.value = false
+  submitError.value = ''
 }
 </script>
 
@@ -52,7 +93,8 @@ function editInquiry() {
         <div class="public-consultation-guide">
           <span>상담 신청 기본 틀</span>
           <strong>목표를 알고,<br />맞는 루틴을 찾습니다.</strong>
-          <p>이 화면은 향후 상담 신청 기능을 확장하기 위한 공개용 예시입니다.</p>
+          <p v-if="isRemoteMode">상담 정보는 안전한 서버 저장 구조로 전달되며, 강사 전용 화면에서만 확인합니다.</p>
+          <p v-else>현재 개발 데모입니다. 입력 내용은 이 브라우저에서만 확인할 수 있습니다.</p>
         </div>
       </section>
 
@@ -63,39 +105,47 @@ function editInquiry() {
               <p class="public-consultation-eyebrow">START WITH YOUR GOAL</p>
               <h2 id="consultation-form-title">신규 회원 상담 신청</h2>
             </div>
-            <span class="public-consultation-readonly">화면 확인용</span>
+            <span class="public-consultation-readonly">{{ storageLabel }}</span>
           </div>
 
           <p class="public-consultation-form-description">기본 정보만 남겨주시면 상담 방향을 정리하는 데 도움이 됩니다.</p>
+          <p v-if="submitError" class="public-consultation-form-error" role="alert">{{ submitError }}</p>
 
-          <form class="public-consultation-form" @submit.prevent="handleSubmit">
+          <form class="public-consultation-form" novalidate @submit.prevent="handleSubmit">
             <label for="consultation-name">
               <span>이름</span>
-              <input id="consultation-name" v-model="inquiry.name" type="text" name="name" autocomplete="name" placeholder="이름을 입력해 주세요" required />
+              <input id="consultation-name" v-model="inquiry.name" type="text" name="name" autocomplete="name" maxlength="50" placeholder="이름을 입력해 주세요" required />
             </label>
 
             <label for="consultation-contact">
               <span>연락처</span>
-              <input id="consultation-contact" v-model="inquiry.contact" type="tel" name="contact" autocomplete="tel" placeholder="연락 가능한 수단을 입력해 주세요" required />
+              <input id="consultation-contact" v-model="inquiry.contact" type="tel" name="contact" autocomplete="tel" maxlength="100" placeholder="연락 가능한 수단을 입력해 주세요" required />
             </label>
 
             <label class="public-consultation-form__full" for="consultation-goal">
               <span>운동 목표</span>
-              <textarea id="consultation-goal" v-model="inquiry.goal" name="goal" rows="5" placeholder="예: 체력 향상, 자세 교정, 꾸준한 운동 습관 만들기" required></textarea>
+              <textarea id="consultation-goal" v-model="inquiry.goal" name="goal" rows="5" maxlength="500" placeholder="예: 체력 향상, 자세 교정, 꾸준한 운동 습관 만들기" required></textarea>
+            </label>
+
+            <label class="public-consultation-consent public-consultation-form__full">
+              <input v-model="inquiry.privacyConsent" type="checkbox" name="privacy-consent" required />
+              <span><router-link to="/privacy" target="_blank" rel="noopener">개인정보 수집·이용 안내</router-link>를 확인했으며 상담을 위해 입력 정보를 제공하는 데 동의합니다.</span>
             </label>
 
             <div class="public-consultation-form__footer">
-              <p>입력한 내용은 저장되거나 전송되지 않습니다.</p>
-              <button type="submit">신청 완료 안내 보기 <span>→</span></button>
+              <p v-if="isRemoteMode">상담 정보는 강사 상담 관리 목적에만 사용됩니다.</p>
+              <p v-else>개발 데모 · 상담 정보는 이 브라우저에만 저장됩니다.</p>
+              <button type="submit" :disabled="isSubmitting">{{ isSubmitting ? '저장 중…' : '상담 신청하기' }} <span>→</span></button>
             </div>
           </form>
         </div>
 
-        <div v-else class="public-consultation-complete" aria-live="polite">
+        <div v-else class="public-consultation-complete" role="status" aria-live="polite">
           <span class="public-consultation-complete__mark" aria-hidden="true">✓</span>
-          <p class="public-consultation-eyebrow">PREVIEW COMPLETE</p>
-          <h2>상담 신청 화면을 확인했습니다.</h2>
-          <p>현재는 화면 확인용 동작만 제공됩니다. 입력한 내용은 저장·전송되지 않으며, 강사 화면에는 샘플 문의만 표시됩니다.</p>
+          <p class="public-consultation-eyebrow">{{ isRemoteMode ? 'REQUEST RECEIVED' : 'DEMO SAVED' }}</p>
+          <h2>{{ isRemoteMode ? '상담 신청이 접수되었습니다.' : '상담 신청이 저장되었습니다.' }}</h2>
+          <p v-if="isRemoteMode">상담 신청이 서버에 접수되었습니다. 강사 전용 상담 관리 화면에서 확인할 수 있습니다.</p>
+          <p v-else>현재 개발 데모 버전입니다. 상담 정보는 이 브라우저의 localStorage에만 저장되며 외부로 전송되지 않습니다.</p>
           <div class="public-consultation-complete__actions">
             <button type="button" class="public-consultation-secondary-button" @click="editInquiry">내용 다시 보기</button>
             <router-link v-if="canViewConsultationManagement" class="public-consultation-primary-button" to="/pt/consultations">강사 상담 관리 화면 보기</router-link>
@@ -159,6 +209,7 @@ function editInquiry() {
 .public-consultation-card-heading h2, .public-consultation-complete h2 { margin: 0; color: var(--consultation-ink); font-size: 1.45rem; font-weight: 850; letter-spacing: -0.065em; }
 .public-consultation-readonly { padding: 7px 9px; border-radius: 8px; color: #67748a; background: var(--consultation-primary-soft); font-size: 0.66rem; font-weight: 800; white-space: nowrap; }
 .public-consultation-form-description { margin: 13px 0 0; color: var(--consultation-muted); font-size: 0.8rem; line-height: 1.7; }
+.public-consultation-form-error { margin: 12px 0 0; padding: 10px 12px; border-radius: 9px; color: #b42318; background: #fff1f0; font-size: 0.75rem; line-height: 1.55; }
 .public-consultation-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 28px; }
 .public-consultation-form label { display: grid; min-width: 0; gap: 8px; }
 .public-consultation-form label > span { color: #526078; font-size: 0.76rem; font-weight: 800; }
@@ -168,11 +219,16 @@ function editInquiry() {
 .public-consultation-form input::placeholder, .public-consultation-form textarea::placeholder { color: #aab3c1; }
 .public-consultation-form input:focus, .public-consultation-form textarea:focus { border-color: #9bb8ff; background: #fff; box-shadow: 0 0 0 3px rgb(37 99 235 / 10%); }
 .public-consultation-form__full { grid-column: 1 / -1; }
+.public-consultation-consent { display: flex !important; grid-template-columns: none; align-items: flex-start; gap: 9px !important; }
+.public-consultation-consent input { flex: 0 0 auto; width: 17px; height: 17px; margin: 1px 0 0; accent-color: var(--consultation-primary); }
+.public-consultation-consent span { color: #7c8799 !important; font-size: 0.71rem !important; font-weight: 500 !important; line-height: 1.6; }
+.public-consultation-consent a { color: var(--consultation-primary); font-weight: 800; }
 .public-consultation-form__footer { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; gap: 18px; margin-top: 2px; }
 .public-consultation-form__footer p { margin: 0; color: #9aa4b4; font-size: 0.69rem; line-height: 1.5; }
 .public-consultation-form__footer button, .public-consultation-primary-button, .public-consultation-secondary-button { display: inline-flex; min-height: 46px; align-items: center; justify-content: center; gap: 9px; padding: 0 17px; border-radius: 10px; font-size: 0.76rem; font-weight: 850; text-decoration: none; }
 .public-consultation-form__footer button, .public-consultation-primary-button { border: 0; color: #fff; background: var(--consultation-primary); box-shadow: 0 5px 12px rgb(37 99 235 / 12%); cursor: pointer; }
 .public-consultation-form__footer button:hover, .public-consultation-primary-button:hover { background: #172033; }
+.public-consultation-form__footer button:disabled { cursor: wait; opacity: 0.65; }
 .public-consultation-form__footer button span { font-size: 1rem; }
 
 .public-consultation-complete { text-align: center; }

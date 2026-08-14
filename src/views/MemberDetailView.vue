@@ -4,13 +4,21 @@ import { useRoute, useRouter } from 'vue-router'
 
 import MeasurementFormDialog from '@/components/pt/MeasurementFormDialog.vue'
 import MemberFormDialog from '@/components/pt/MemberFormDialog.vue'
+import MemberOnboardingDialog from '@/components/pt/MemberOnboardingDialog.vue'
 import SessionFormDialog from '@/components/pt/SessionFormDialog.vue'
 import CommunicationThread from '@/components/pt/CommunicationThread.vue'
 import WorkoutAssignmentDialog from '@/components/pt/WorkoutAssignmentDialog.vue'
+import {
+  getMemberOnboarding,
+  getOnboardingStatusType,
+  isSampleMember,
+} from '@/services/memberOnboarding'
+import { useAuthStore } from '@/stores/authStore'
 import { usePtStore } from '@/stores/ptStore'
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 const store = usePtStore()
 const activeTab = ref('overview')
 const memberDialogOpen = ref(false)
@@ -19,6 +27,8 @@ const measurementDialogOpen = ref(false)
 const noteDialogOpen = ref(false)
 const assignmentDialogOpen = ref(false)
 const coachingDialogOpen = ref(false)
+const onboardingDialogOpen = ref(false)
+const onboardingError = ref('')
 const noteForm = ref({ type: '상담', content: '' })
 const coachingForm = ref({ title: '운동·생활 피드백', content: '' })
 
@@ -33,6 +43,8 @@ const memberMealRecords = computed(() => (member.value ? store.getMemberMealReco
 const memberCoachingNotes = computed(() => (member.value ? store.getMemberCoachingNotes(member.value.id) : []))
 const unreadCommunications = computed(() => (member.value ? store.getUnreadCommunicationCount(member.value.id, 'instructor') : 0))
 const trainer = computed(() => (member.value ? store.getTrainer(member.value.trainerId) : null))
+const onboarding = computed(() => getMemberOnboarding(member.value))
+const sampleMember = computed(() => isSampleMember(member.value))
 
 function formatDate(value) {
   return value?.replaceAll('-', '.') ?? '-'
@@ -45,6 +57,49 @@ function formatCurrency(value) {
 function saveMember(payload) {
   if (!store.canEdit) return
   store.updateMember(payload)
+}
+
+function formatDateTime(value) {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+
+  return new Intl.DateTimeFormat('ko-KR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
+}
+
+function openOnboardingDialog() {
+  onboardingError.value = ''
+  if (sampleMember.value) {
+    onboardingError.value = '샘플 회원의 온보딩 정보는 수정할 수 없습니다. 상담에서 등록된 실제 회원을 선택해 주세요.'
+    return
+  }
+  onboardingDialogOpen.value = true
+}
+
+function saveOnboarding(input) {
+  if (!store.canEdit || !member.value) return
+  if (sampleMember.value) {
+    onboardingError.value = '샘플 회원의 온보딩 정보는 수정할 수 없습니다.'
+    return
+  }
+
+  const updated = store.saveMemberOnboarding(member.value.id, input)
+
+  if (!updated) {
+    onboardingError.value = '온보딩 정보를 저장하지 못했습니다. 저장 공간과 강사 권한을 확인해 주세요.'
+    return
+  }
+
+  onboardingError.value = ''
+  onboardingDialogOpen.value = false
+}
+
+function openMemberDashboard() {
+  if (member.value && auth.isDemoMode) auth.setDemoMember(member.value.id)
+  router.push('/pt/member/dashboard')
 }
 
 function saveSession(payload) {
@@ -102,7 +157,7 @@ function sessionType(status) {
       <div class="detail-profile__identity">
         <div class="member-avatar member-avatar--large" :style="{ background: member.avatarColor }">{{ member.name.slice(0, 1) }}</div>
         <div>
-          <div class="detail-profile__title-row"><h2>{{ member.name }}</h2><el-tag :type="member.status === '활성' ? 'success' : 'warning'" effect="light">{{ member.status }}</el-tag></div>
+          <div class="detail-profile__title-row"><h2>{{ member.name }}</h2><el-tag :type="member.status === '활성' ? 'success' : 'warning'" effect="light">{{ member.status }}</el-tag><el-tag v-if="member.registeredFromConsultation" type="info" effect="plain">상담 전환 회원</el-tag></div>
           <p>{{ member.phone }} · {{ member.email }}</p>
           <p class="detail-profile__goal">목표: {{ member.goal }}</p>
         </div>
@@ -148,6 +203,38 @@ function sessionType(status) {
             <el-empty v-else description="등록된 회원권이 없습니다." :image-size="70" />
           </el-card>
         </div>
+
+        <el-card class="panel-card member-onboarding-card" shadow="never">
+          <div class="section-heading">
+            <div><p class="section-eyebrow">MEMBER ONBOARDING</p><h2>초기 관리 설정</h2></div>
+            <el-tag :type="getOnboardingStatusType(onboarding.onboardingStatus)" effect="light">{{ onboarding.onboardingStatus }}</el-tag>
+          </div>
+          <p class="member-onboarding-card__intro">상담에서 확인한 목표와 회원의 기본 조건을 바탕으로 관리 방향을 설정합니다.</p>
+
+          <dl class="onboarding-summary-list">
+            <div><dt>운동 목표</dt><dd>{{ onboarding.exerciseGoal || '아직 설정되지 않았습니다.' }}</dd></div>
+            <div><dt>운동 경험</dt><dd>{{ onboarding.experienceLevel || '미설정' }}</dd></div>
+            <div><dt>희망 운동 횟수</dt><dd>{{ onboarding.weeklyFrequency || '미설정' }}</dd></div>
+            <div><dt>선호 시간대</dt><dd>{{ onboarding.preferredTime || '미설정' }}</dd></div>
+            <div v-if="onboarding.trainerNote"><dt>트레이너 관리 메모</dt><dd>{{ onboarding.trainerNote }}</dd></div>
+            <div v-if="onboarding.onboardingCompletedAt"><dt>온보딩 완료일</dt><dd>{{ formatDateTime(onboarding.onboardingCompletedAt) }}</dd></div>
+          </dl>
+
+          <div v-if="member.sourceConsultationId" class="onboarding-source">
+            <span>상담 연결 정보</span>
+            <p>상담 ID {{ member.sourceConsultationId }} · 상담 완료 {{ formatDateTime(member.sourceConsultationCompletedAt) }} · 회원 등록 {{ formatDateTime(member.registeredFromConsultationAt) }}</p>
+          </div>
+
+          <el-alert v-if="sampleMember" class="member-onboarding-alert" type="info" :closable="false" show-icon title="샘플 회원 데이터입니다.">
+            샘플 회원은 온보딩 정보를 저장할 수 없습니다. 실제 상담에서 등록된 회원의 초기 관리 설정을 사용해 보세요.
+          </el-alert>
+          <el-alert v-else-if="onboardingError" class="member-onboarding-alert" type="error" :closable="false" show-icon :title="onboardingError" />
+
+          <div class="member-onboarding-card__actions">
+            <el-button v-if="store.canEdit" type="primary" :disabled="sampleMember" @click="openOnboardingDialog">{{ onboarding.onboardingStatus === '초기 설정 필요' ? '초기 관리 정보 설정' : '온보딩 정보 수정' }}</el-button>
+            <el-button plain @click="openMemberDashboard">회원 대시보드 보기</el-button>
+          </div>
+        </el-card>
       </el-tab-pane>
 
       <el-tab-pane label="PT 일정" name="schedule">
@@ -234,6 +321,14 @@ function sessionType(status) {
       </el-form>
       <template #footer><div class="form-actions"><el-button @click="coachingDialogOpen = false">취소</el-button><el-button type="primary" @click="saveCoachingNote">피드백 저장</el-button></div></template>
     </el-dialog>
+
+    <MemberOnboardingDialog
+      v-if="store.canEdit && member && !sampleMember"
+      v-model="onboardingDialogOpen"
+      :onboarding="onboarding"
+      :is-sample="sampleMember"
+      @save="saveOnboarding"
+    />
   </div>
   <el-empty v-else description="회원을 찾을 수 없습니다."><el-button type="primary" @click="router.push('/pt/members')">회원 목록으로</el-button></el-empty>
 </template>
@@ -246,6 +341,7 @@ function sessionType(status) {
 .detail-profile__title-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 9px;
 }
 
@@ -267,6 +363,79 @@ function sessionType(status) {
 
 .member-caution {
   margin-bottom: 18px;
+}
+
+.member-onboarding-card {
+  margin-top: 18px;
+}
+
+.member-onboarding-card__intro {
+  margin: -4px 0 16px;
+  color: #7c8799;
+  font-size: 0.78rem;
+  line-height: 1.65;
+}
+
+.onboarding-summary-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 18px;
+  margin: 0;
+}
+
+.onboarding-summary-list > div {
+  min-width: 0;
+  padding: 12px 13px;
+  border: 1px solid #e8edf5;
+  border-radius: 11px;
+  background: #fbfcff;
+}
+
+.onboarding-summary-list dt {
+  color: #8b96a8;
+  font-size: 0.7rem;
+}
+
+.onboarding-summary-list dd {
+  margin: 6px 0 0;
+  color: #34445e;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: keep-all;
+}
+
+.onboarding-source {
+  margin-top: 12px;
+  padding: 12px 13px;
+  border-radius: 11px;
+  color: #64738a;
+  background: #f8fafc;
+}
+
+.onboarding-source span {
+  color: #526078;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.onboarding-source p {
+  margin: 5px 0 0;
+  font-size: 0.7rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.member-onboarding-alert {
+  margin-top: 12px;
+}
+
+.member-onboarding-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 .membership-detail-row,
@@ -489,6 +658,19 @@ function sessionType(status) {
 }
 
 @media (max-width: 640px) {
+  .onboarding-summary-list {
+    grid-template-columns: 1fr;
+  }
+
+  .member-onboarding-card__actions {
+    flex-direction: column;
+  }
+
+  .member-onboarding-card__actions .el-button {
+    width: 100%;
+    margin-left: 0;
+  }
+
   .measurement-grid {
     grid-template-columns: 1fr;
   }

@@ -2,6 +2,10 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 
+import {
+  getMemberOnboarding,
+  getOnboardingStatusType,
+} from '@/services/memberOnboarding'
 import { useAuthStore } from '@/stores/authStore'
 import { usePtStore } from '@/stores/ptStore'
 
@@ -17,6 +21,17 @@ const progress = computed(() => (member.value ? store.getMemberProgress(member.v
 const unreadMessages = computed(() => (member.value ? store.getUnreadCommunicationCount(member.value.id) : 0))
 const unreadNotes = computed(() => (member.value ? store.getUnreadCoachingNoteCount(member.value.id) : 0))
 const latestNote = computed(() => (member.value ? store.getMemberCoachingNotes(member.value.id)[0] : null))
+const onboarding = computed(() => getMemberOnboarding(member.value))
+const onboardingDescription = computed(() => {
+  if (onboarding.value.onboardingStatus === '관리 시작 준비 완료') return '목표와 기본 조건을 바탕으로 초기 관리 방향이 정리되어 있습니다.'
+  if (onboarding.value.onboardingStatus === '온보딩 진행 중') return '트레이너가 회원님의 목표와 운동 조건을 확인하며 관리 방향을 정리하고 있습니다.'
+  return '아직 초기 관리 정보가 설정되지 않았습니다. 트레이너와 목표와 운동 일정을 먼저 확인해 주세요.'
+})
+const nextManagementStep = computed(() => (
+  onboarding.value.onboardingStatus === '관리 시작 준비 완료'
+    ? '다음 수업 전 컨디션을 확인하고 오늘의 운동을 시작해 보세요.'
+    : '트레이너와 초기 목표를 확인하면 맞춤 관리가 시작됩니다.'
+))
 
 function formatDate(value) {
   return value?.replaceAll('-', '.') ?? '-'
@@ -77,6 +92,21 @@ function go(path) {
         </div>
       </div>
     </div>
+
+    <el-card class="panel-card member-onboarding-summary" shadow="never">
+      <div class="section-heading">
+        <div><p class="section-eyebrow">MY STARTING PLAN</p><h2>나의 초기 관리 방향</h2></div>
+        <el-tag :type="getOnboardingStatusType(onboarding.onboardingStatus)" effect="light">{{ onboarding.onboardingStatus }}</el-tag>
+      </div>
+      <p class="member-onboarding-summary__description">{{ onboardingDescription }}</p>
+      <div class="member-onboarding-summary__grid">
+        <div><span>운동 목표</span><strong>{{ onboarding.exerciseGoal || '아직 설정되지 않았습니다.' }}</strong></div>
+        <div><span>운동 경험</span><strong>{{ onboarding.experienceLevel || '미설정' }}</strong></div>
+        <div><span>희망 운동 횟수</span><strong>{{ onboarding.weeklyFrequency || '미설정' }}</strong></div>
+        <div><span>선호 시간대</span><strong>{{ onboarding.preferredTime || '미설정' }}</strong></div>
+      </div>
+      <div class="member-onboarding-summary__next"><span>다음에 확인할 내용</span><p>{{ nextManagementStep }}</p></div>
+    </el-card>
 
     <div class="two-column-grid member-dashboard-grid">
       <el-card class="panel-card" shadow="never">
@@ -256,6 +286,62 @@ function go(path) {
 
 .member-dashboard-grid {
   margin-top: 18px;
+}
+
+.member-onboarding-summary {
+  margin-top: 18px;
+}
+
+.member-onboarding-summary__description {
+  margin: -4px 0 15px;
+  color: #68768b;
+  font-size: 0.8rem;
+  line-height: 1.65;
+}
+
+.member-onboarding-summary__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.member-onboarding-summary__grid > div {
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid #e8edf5;
+  border-radius: 12px;
+  background: #fbfcff;
+}
+
+.member-onboarding-summary__grid span,
+.member-onboarding-summary__next span {
+  color: #8b96a8;
+  font-size: 0.7rem;
+}
+
+.member-onboarding-summary__grid strong {
+  display: block;
+  margin-top: 6px;
+  color: #34445e;
+  font-size: 0.79rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: keep-all;
+}
+
+.member-onboarding-summary__next {
+  margin-top: 12px;
+  padding: 12px 13px;
+  border-radius: 11px;
+  background: #f4f7ff;
+}
+
+.member-onboarding-summary__next p {
+  margin: 5px 0 0;
+  color: #526078;
+  font-size: 0.76rem;
+  line-height: 1.6;
 }
 
 .member-assignment-list {
@@ -446,6 +532,10 @@ function go(path) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .member-onboarding-summary__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .quick-access-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -465,6 +555,10 @@ function go(path) {
   }
 
   .quick-access-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .member-onboarding-summary__grid {
     grid-template-columns: 1fr;
   }
 
